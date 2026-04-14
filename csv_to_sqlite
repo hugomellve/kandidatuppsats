@@ -1,0 +1,24 @@
+import pandas as pd
+import sqlite3
+
+# Path to your large CSV file
+csv_path = "song_lyrics.csv"
+
+# Load in chunks if the file is massive
+chunksize = 10000  # Adjust as needed
+
+# Create a new SQLite database (or connect to existing)
+conn = sqlite3.connect("songs.db")
+
+# Name of the target table
+table_name = "lyrics"
+count = 0
+# Process in chunks
+for chunk in pd.read_csv(csv_path, chunksize=chunksize):
+    chunk.to_sql(table_name, conn, if_exists='append', index=False)
+    count += 1
+    print(f"step {count} done")
+
+conn.close()
+
+print("Done! Your CSV is now a SQLite database.")
