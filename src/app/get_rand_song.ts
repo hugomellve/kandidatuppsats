@@ -6,12 +6,16 @@ export type Song = {
   title: string;
   line_1: string;
   line_2: string;
+  views: number;
+  selected_for_popularity: number;
+  spotify_id?: string | null;
+  spotify_popularity?: number | null;
   used: "yes" | "no";
 };
 
 const songsFilePath = path.join(
   process.cwd(),
-  "v1_selected_songs_with_lyrics.json"
+  "spotify_and_genius_popularity_data.json"
 );
 
 function shuffleArray<T>(array: T[]): T[] {

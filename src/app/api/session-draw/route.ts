@@ -7,26 +7,32 @@ type Guess = {
   result?: "success" | "fail";
 };
 
+type SessionSong = {
+  artist: string;
+  title: string;
+  views?: number;
+  selected_for_popularity?: number;
+  spotify_popularity?: number | null;
+};
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {
       lastSong: Guess | null;
-      nextSong: { artist: string; title: string };
-      difficulty: "easier" | "same" | "harder";
-      reason: string;
+      nextSong: SessionSong;
       clickToCardMs: number;
       recentGuesses: Guess[];
+      candidates: SessionSong[];
     };
 
     await appendSessionDraw({
       lastSong: body.lastSong ?? null,
       nextSong: body.nextSong,
-      difficulty: body.difficulty,
-      reason: body.reason,
       clickToCardMs: body.clickToCardMs,
       recentGuesses: Array.isArray(body.recentGuesses)
         ? body.recentGuesses.slice(0, 5)
         : [],
+      candidates: Array.isArray(body.candidates) ? body.candidates : [],
     });
 
     return NextResponse.json({ success: true });

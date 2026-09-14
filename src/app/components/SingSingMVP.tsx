@@ -9,13 +9,22 @@ type LyricData = {
   line_2: string;
   artist: string;
   title: string;
+  views: number;
+  selected_for_popularity: number;
+  spotify_popularity?: number | null;
 };
 
 type DrawResponse = {
   song: LyricData;
   metadata: {
-    reason: string;
-    difficulty: "easier" | "same" | "harder";
+    candidates: Array<{
+      id: string;
+      artist: string;
+      title: string;
+      views: number;
+      selected_for_popularity: number;
+      spotify_popularity?: number | null;
+    }>;
   };
 };
 
@@ -30,12 +39,18 @@ export default function SingSingMVP() {
   const [recentGuesses, setRecentGuesses] = useState<Guess[]>([]);
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [blurSecondLine, setBlurSecondLine] = useState(true);
+  const [isSecondLineRevealed, setIsSecondLineRevealed] = useState(false);
 
   const waitForPaint = async () => {
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   };
 
-  const fetchNextCard = async (lastSong: Guess | null, nextRecentGuesses: Guess[]) => {
+  const fetchNextCard = async (
+    lastSong: Guess | null,
+    recentGuessesForModel: Guess[],
+    nextRecentGuesses: Guess[]
+  ) => {
     setLoading(true);
     const clickStartedAt = performance.now();
 
@@ -45,7 +60,7 @@ export default function SingSingMVP() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        recentGuesses: nextRecentGuesses,
+        recentGuesses: recentGuessesForModel,
         lastSong,
       }),
     });
@@ -54,6 +69,7 @@ export default function SingSingMVP() {
 
     setRecentGuesses(nextRecentGuesses);
     setCurrentLyric(data.song);
+    setIsSecondLineRevealed(false);
     await waitForPaint();
     const clickToCardMs = Math.round(performance.now() - clickStartedAt);
 
@@ -64,14 +80,10 @@ export default function SingSingMVP() {
       },
       body: JSON.stringify({
         lastSong,
-        nextSong: {
-          artist: data.song.artist,
-          title: data.song.title,
-        },
-        difficulty: data.metadata.difficulty,
-        reason: data.metadata.reason,
+        nextSong: data.song,
         clickToCardMs,
-        recentGuesses: nextRecentGuesses,
+        recentGuesses: recentGuessesForModel,
+        candidates: data.metadata.candidates,
       }),
     });
 
@@ -79,7 +91,7 @@ export default function SingSingMVP() {
   };
 
   const drawCard = async () => {
-    await fetchNextCard(null, recentGuesses);
+    await fetchNextCard(null, recentGuesses, recentGuesses);
   };
 
   const submitGuess = async (result: Guess["result"]) => {
@@ -94,7 +106,7 @@ export default function SingSingMVP() {
     };
 
     const nextRecentGuesses = [latestGuess, ...recentGuesses].slice(0, 5);
-    await fetchNextCard(latestGuess, nextRecentGuesses);
+    await fetchNextCard(latestGuess, recentGuesses, nextRecentGuesses);
   };
 
   const resetSongs = async () => {
@@ -107,6 +119,7 @@ export default function SingSingMVP() {
     if (res.ok) {
       setCurrentLyric(null);
       setRecentGuesses([]);
+      setIsSecondLineRevealed(false);
     }
 
     setResetting(false);
@@ -116,13 +129,53 @@ export default function SingSingMVP() {
     <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-900 text-white space-y-4">
       <h1 className="text-2xl font-bold">Sing Sing MVP</h1>
 
+      <label className="flex items-center gap-3 text-sm text-gray-200 cursor-pointer select-none">
+        <span>Blur second line</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={blurSecondLine}
+          aria-label="Toggle blur for second lyric line"
+          onClick={() => {
+            setBlurSecondLine((current) => !current);
+            setIsSecondLineRevealed(false);
+          }}
+          className={`relative h-7 w-12 rounded-full transition-colors ${
+            blurSecondLine ? "bg-blue-500" : "bg-gray-600"
+          }`}
+        >
+          <span
+            className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white transition-transform ${
+              blurSecondLine ? "translate-x-6" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </label>
+
       {loading && <p>Fetching a lyric...</p>}
 
       {currentLyric ? (
         <Card className="w-full max-w-md text-center bg-white text-black">
           <CardContent className="p-4 space-y-2">
             <p className="text-lg">"{currentLyric.line_1}"</p>
-            <p className="text-lg text-gray-600">"{currentLyric.line_2}"</p>
+            <button
+              type="button"
+              onClick={() => {
+                if (blurSecondLine) {
+                  setIsSecondLineRevealed(true);
+                }
+              }}
+              className={`w-full text-lg text-gray-600 transition ${
+                blurSecondLine && !isSecondLineRevealed ? "blur-sm" : ""
+              }`}
+              aria-label={
+                blurSecondLine && !isSecondLineRevealed
+                  ? "Reveal second lyric line"
+                  : "Second lyric line visible"
+              }
+            >
+              "{currentLyric.line_2}"
+            </button>
             <div className="text-sm text-gray-700">
               <p>Song: {currentLyric.title}</p>
               <p>Artist: {currentLyric.artist}</p>
